@@ -1,0 +1,231 @@
+<!doctype html>
+<html>
+<head>
+<meta charset='UTF-8'><meta name='viewport' content='width=device-width initial-scale=1'>
+<title>ws3</title>
+</head>
+<body><h3 id='nomor-1'>Nomor 1</h3>
+<pre><code class='language-sparql' lang='sparql'>PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+
+SELECT * WHERE {
+  {
+    SELECT (?class as ?barang) (&quot;class&quot; as ?jenis) (COUNT(?instance) AS ?hitungBarang) WHERE {
+      {
+        SELECT DISTINCT ?class WHERE {
+          {
+            [ a ?class ]
+          } UNION {
+            [ rdfs:subClassOf ?class ]
+          } UNION {
+            ?class rdfs:subClassOf []
+          } UNION {
+            [ rdfs:domain ?class ]
+          } UNION {
+            [ rdfs:range ?class ]
+          }
+        }
+      }
+      ?subclass rdfs:subClassOf* ?class .
+      ?instance a ?subclass.
+    }
+    GROUP by ?class
+  } UNION {
+    SELECT (?prop as ?barang) (&quot;property&quot; as ?jenis) (COUNT(*) AS ?hitungBarang) WHERE {
+      [] ?prop []
+    }
+    GROUP BY ?prop
+  }
+}
+</code></pre>
+<h2 id='nomor-2'>Nomor 2</h2>
+<p>Berdasarkan query berikut:</p>
+<pre><code class='language-sparql' lang='sparql'>PREFIX : &lt;http://domain.org/ns/&gt;
+
+SELECT (COUNT(DISTINCT *) as ?tanggalDouble) WHERE {
+  ?album :date ?tanggal .
+	?album :date ?tanggal2 .
+  FILTER (?tanggal &lt; ?tanggal2)
+}
+ORDER BY ?tanggal
+</code></pre>
+<p>Terdapat beberapa album yang tanggal nya lebih dari satu, diasumsikan tanggal rilis merupakan tanggal yang paling kecil untuk setiap property <code>:date</code> pada sebuah album. Untungnya, setiap album memiliki setidaknya satu properti <code>:date</code>.</p>
+<pre><code class='language-sparql' lang='sparql'>PREFIX : &lt;http://domain.org/ns/&gt;
+PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
+
+SELECT * WHERE {
+  ?album rdf:type :Album .
+  OPTIONAL {
+    ?album :name ?namaAlbum .
+  }
+  FILTER (!BOUND(?namaAlbum))
+}
+ORDER BY ?album
+</code></pre>
+<p>Berdasarkan query di atas, diketahui ada satu album bernama X dari Ed Sheeran yang tidak memiliki properti nama album. Sehingga ditulis query sebagai berikut.</p>
+<pre><code class='language-sparql' lang='sparql'>PREFIX : &lt;http://domain.org/ns/&gt;
+PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+
+SELECT DISTINCT ?artis ?namaArtis ?jenisArtis ?album ?namaAlbum ?tanggal WHERE {
+  ?jenisArtis rdfs:subClassOf :Artist .
+  ?artis a ?jenisArtis .
+  ?artis :name ?namaArtis
+  OPTIONAL {
+    ?album :artist ?artis .
+    ?album a :Album .
+    ?album :date ?tanggal .
+    OPTIONAL { ?album :name ?namaAlbum }
+  }
+  FILTER (
+    NOT EXISTS
+    {
+      ?album :date ?tanggalLain
+      FILTER (?tanggal &gt; ?tanggalLain)
+    } || !BOUND(?album)
+  )
+}
+ORDER BY ?tanggal
+</code></pre>
+<h3 id='nomor-3'>Nomor 3</h3>
+<pre><code class='language-sparql' lang='sparql'>PREFIX : &lt;http://domain.org/ns/&gt;
+
+SELECT * WHERE {
+  ?band a :Band .
+  ?band :member ?soloArtis .
+  ?band :name ?namaBand .
+  ?soloArtis a :SoloArtist .
+  ?soloArtis :name ?namaSoloArtis .
+} ORDER BY ?namaBand ?namaSoloArtis
+</code></pre>
+<h3 id='nomor-4'>Nomor 4</h3>
+<pre><code class='language-sparql' lang='sparql'>PREFIX : &lt;http://domain.org/ns/&gt;
+PREFIX xsd: &lt;http://www.w3.org/2001/XMLSchema#&gt;
+
+SELECT ?namaArtis ?namaAlbum ?tanggal WHERE {
+  ?artis :name ?namaArtis .
+  ?artis a :SoloArtist .
+  ?album :producer ?artis .
+  ?album :artist ?artis .
+  ?album a :Album .
+  ?album :date ?tanggal .
+  OPTIONAL { ?album :name ?namaAlbum } .
+  FILTER (?tanggal &gt;= &quot;1970-01-01&quot;^^xsd:date &amp;&amp; ?tanggal &lt; &quot;1980-01-01&quot;^^xsd:date)
+  FILTER NOT EXISTS {
+    ?album :date ?tanggalLain
+    FILTER (?tanggal &gt; ?tanggalLain)
+  }
+}
+</code></pre>
+<h3 id='nomor-5'>Nomor 5</h3>
+<pre><code class='language-sparql' lang='sparql'>PREFIX : &lt;http://domain.org/ns/&gt;
+PREFIX xsd: &lt;http://www.w3.org/2001/XMLSchema#&gt;
+
+SELECT DISTINCT ?album ?artis ?tanggal (COUNT(?lagu) as ?laguCount) WHERE {
+  ?artis :name ?namaArtis .
+  ?artis a :Band .
+  ?album :artist ?artis .
+  ?album a :Album .
+  ?album :producer ?produser .
+  ?album :date ?tanggal .
+  ?album :track ?lagu .
+  OPTIONAL { ?album :name ?namaAlbum } .
+  FILTER (?tanggal &gt;= &quot;1980-01-01&quot;^^xsd:date &amp;&amp; ?tanggal &lt; &quot;1990-01-01&quot;^^xsd:date)
+  FILTER NOT EXISTS {
+    ?album :date ?tanggalLain
+    FILTER (?tanggal &gt; ?tanggalLain)
+  }
+  FILTER (?produser = ?artis ||
+          EXISTS { ?artis :member ?produser . }
+  )
+} GROUP BY ?album ?artis ?tanggal
+</code></pre>
+<h2 id='nomor-6'>Nomor 6</h2>
+<pre><code class='language-sparql' lang='sparql'>PREFIX : &lt;http://domain.org/ns/&gt;
+
+SELECT ?penulis ?banyakTulisan ?countAlbum {
+  {
+    SELECT ?penulis (COUNT(?lagu) as ?banyakTulisan) WHERE {
+      ?lagu a :Song .
+      ?lagu :writer ?penulis
+    }
+    GROUP BY ?penulis
+    ORDER BY DESC(?banyakTulisan)
+    LIMIT 10
+  }
+  {
+    SELECT (?penulis2 as ?penulis) (COUNT(?album) as ?countAlbum) WHERE {
+      {
+        SELECT DISTINCT ?penulis2 ?album WHERE {
+          ?lagulain :writer ?penulis2 .
+          ?album :track ?lagulain
+        }
+        ORDER BY ?penulis2
+      }
+    }
+    GROUP BY ?penulis2
+  }
+}
+ORDER BY DESC(?banyakTulisan)
+</code></pre>
+<h2 id='nomor-7'>Nomor 7</h2>
+<pre><code class='language-sparql' lang='sparql'>PREFIX : &lt;http://domain.org/ns/&gt;
+
+SELECT * WHERE {
+  {
+    SELECT ?band ?namaBand (COUNT(?anggota) AS ?anggotaCount) WHERE {
+      ?band a :Band .
+      ?band :member ?anggota .
+      ?band :name ?namaBand .
+    }
+    GROUP BY ?band ?namaBand
+  }
+  FILTER (?anggotaCount &gt;= 5)
+}
+</code></pre>
+<h2 id='nomor-8'>Nomor 8</h2>
+<pre><code class='language-sparql' lang='sparql'>PREFIX : &lt;http://domain.org/ns/&gt;
+
+SELECT ?judulAlbum ?judulLagu ?namaArtis ?panjangLagu ?paraPenulis WHERE {
+  ?album :artist ?artis .
+  ?album :name ?judulAlbum .
+  ?artis :name ?namaArtis .
+  {
+    SELECT ?album ?lagu ?judulLagu ?panjangLagu (GROUP_CONCAT(
+                                                   ?namaPenulis;SEPARATOR=&quot;, &quot;) AS ?paraPenulis) WHERE {
+      ?album :track ?lagu .
+      ?lagu :writer ?penulis .
+      ?penulis :name ?namaPenulis .
+      ?lagu :length ?panjangLagu .
+      ?lagu :name ?judulLagu
+    }
+    GROUP BY ?album ?lagu ?judulLagu ?panjangLagu
+  }
+  FILTER ((NOT EXISTS
+           {
+             ?album :track ?laguLain .
+             ?laguLain :length ?panjangLaguLain .
+             ?laguLain :name ?judulLaguLain .
+             FILTER (
+               ?panjangLaguLain &gt; ?panjangLagu ||
+               (?panjangLaguLain = ?panjangLagu &amp;&amp; ?judulLaguLain &gt; ?judulLagu )
+             )
+           }
+          ) ||
+          (NOT EXISTS
+           {
+             ?album :track ?laguLain .
+             ?laguLain :length ?panjangLaguLain .
+             ?laguLain :name ?judulLaguLain .
+             FILTER (
+               ?panjangLaguLain &lt; ?panjangLagu ||
+               (?panjangLaguLain = ?panjangLagu &amp;&amp; ?judulLaguLain &lt; ?judulLagu )
+             )
+           }
+          )
+  )
+
+}
+ORDER BY ?panjangLagu
+</code></pre>
+<p>&nbsp;</p>
+</body>
+</html>
